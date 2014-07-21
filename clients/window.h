@@ -270,6 +270,12 @@ typedef void (*widget_axis_handler_t)(struct widget *widget,
 				      uint32_t axis,
 				      wl_fixed_t value,
 				      void *data);
+typedef void (*widget_tablet_motion_handler_t)(struct widget *widget,
+					       struct input *input,
+					       float x,
+					       float y,
+					       uint32_t time,
+					       void *data);
 
 struct window *
 window_create(struct display *display);
@@ -523,6 +529,9 @@ widget_set_touch_cancel_handler(struct widget *widget,
 void
 widget_set_axis_handler(struct widget *widget,
 			widget_axis_handler_t handler);
+void
+widget_set_tablet_motion_handler(struct widget *widget,
+				 widget_tablet_motion_handler_t handler);
 void
 widget_schedule_redraw(struct widget *widget);
 void

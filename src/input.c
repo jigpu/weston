@@ -122,6 +122,26 @@ touch_focus_resource_destroyed(struct wl_listener *listener, void *data)
 }
 
 static void
+tablet_focus_view_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_tablet *tablet =
+		container_of(listener, struct weston_tablet,
+			     focus_view_listener);
+
+	weston_tablet_set_focus(tablet, NULL, 0, 0, 0);
+}
+
+static void
+tablet_focus_resource_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_tablet *tablet =
+		container_of(listener, struct weston_tablet,
+			     focus_resource_listener);
+
+	weston_tablet_set_focus(tablet, NULL, 0, 0, 0);
+}
+
+static void
 move_resources(struct wl_list *destination, struct wl_list *source)
 {
 	wl_list_insert_list(destination, source);
@@ -597,6 +617,85 @@ weston_touch_destroy(struct weston_touch *touch)
 	free(touch);
 }
 
+WL_EXPORT struct weston_tablet *
+weston_tablet_create(void)
+{
+	struct weston_tablet *tablet;
+
+	tablet = zalloc(sizeof *tablet);
+	if (tablet == NULL)
+		return NULL;
+
+	wl_list_init(&tablet->resource_list);
+	wl_list_init(&tablet->focus_resource_list);
+	wl_list_init(&tablet->focus_view_listener.link);
+	tablet->focus_view_listener.notify = tablet_focus_view_destroyed;
+	wl_list_init(&tablet->focus_resource_listener.link);
+	tablet->focus_resource_listener.notify = tablet_focus_resource_destroyed;
+	wl_signal_init(&tablet->focus_signal);
+
+	return tablet;
+}
+
+WL_EXPORT void
+weston_tablet_destroy(struct weston_tablet *tablet)
+{
+	wl_list_remove(&tablet->focus_view_listener.link);
+	wl_list_remove(&tablet->focus_resource_listener.link);
+	free(tablet);
+}
+
+WL_EXPORT void
+weston_tablet_set_focus(struct weston_tablet *tablet,
+			struct weston_view *view, wl_fixed_t sx, wl_fixed_t sy,
+			uint32_t time)
+{
+	struct wl_list *focus_resource_list;
+	struct wl_resource *resource;
+
+	focus_resource_list = &tablet->focus_resource_list;
+
+	if (tablet->focus && !wl_list_empty(focus_resource_list)) {
+		wl_resource_for_each(resource, focus_resource_list) {
+			wl_tablet_send_proximity_out(resource, time);
+			wl_tablet_send_frame(resource);
+		}
+
+		move_resources(&tablet->resource_list, focus_resource_list);
+	}
+
+	if (find_resource_for_view(&tablet->resource_list, view)) {
+		struct wl_client *surface_client =
+			wl_resource_get_client(view->surface->resource);
+
+		move_resources_for_client(focus_resource_list,
+					  &tablet->resource_list,
+					  surface_client);
+
+		wl_resource_for_each(resource, focus_resource_list)
+			wl_tablet_send_proximity_in(resource, 0, 0,
+						    view->surface->resource,
+						    time);
+
+	}
+
+	wl_list_remove(&tablet->focus_view_listener.link);
+	wl_list_init(&tablet->focus_view_listener.link);
+	wl_list_remove(&tablet->focus_resource_listener.link);
+	wl_list_init(&tablet->focus_resource_listener.link);
+	if (view)
+		wl_signal_add(&view->destroy_signal,
+			      &tablet->focus_view_listener);
+	if (view && view->surface->resource)
+		wl_resource_add_destroy_listener(view->surface->resource,
+						 &tablet->focus_resource_listener);
+
+	tablet->focus = view;
+	tablet->focus_view_listener.notify = tablet_focus_view_destroyed;
+
+	wl_signal_emit(&tablet->focus_signal, tablet);
+}
+
 static void
 seat_send_updated_caps(struct weston_seat *seat)
 {
@@ -609,6 +708,8 @@ seat_send_updated_caps(struct weston_seat *seat)
 		caps |= WL_SEAT_CAPABILITY_KEYBOARD;
 	if (seat->touch_device_count > 0)
 		caps |= WL_SEAT_CAPABILITY_TOUCH;
+	if (seat->tablet_device_count > 0)
+		caps |= WL_SEAT_CAPABILITY_TABLET;
 
 	wl_resource_for_each(resource, &seat->base_resource_list) {
 		wl_seat_send_capabilities(resource, caps);
@@ -1531,6 +1632,40 @@ notify_touch_frame(struct weston_seat *seat)
 	grab->interface->frame(grab);
 }
 
+WL_EXPORT void
+notify_tablet_motion(struct weston_seat *seat, struct weston_tablet *tablet,
+		     uint32_t time, wl_fixed_t x, wl_fixed_t y)
+{
+	wl_fixed_t sx, sy;
+	struct weston_view *current_view;
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+
+	weston_output_transform_coordinate(tablet->output, x, y, &x, &y);
+
+	current_view =
+		weston_compositor_pick_view(seat->compositor, x, y, &sx, &sy);
+	if (current_view != tablet->focus)
+		weston_tablet_set_focus(tablet, current_view, sx, sy, time);
+
+	if (!wl_list_empty(resource_list)) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_motion(resource, sx, sy, time);
+	}
+}
+
+WL_EXPORT void
+notify_tablet_frame(struct weston_tablet *tablet)
+{
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+
+	if (!wl_list_empty(resource_list) && tablet->focus) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_frame(resource);
+	}
+}
+
 static void
 pointer_cursor_surface_configure(struct weston_surface *es,
 				 int32_t dx, int32_t dy)
@@ -1770,8 +1905,7 @@ static const struct wl_touch_interface touch_interface = {
 	touch_release
 };
 
-static void
-seat_get_touch(struct wl_client *client, struct wl_resource *resource,
+static void seat_get_touch(struct wl_client *client, struct wl_resource *resource,
 	       uint32_t id)
 {
 	struct weston_seat *seat = wl_resource_get_user_data(resource);
@@ -1799,10 +1933,100 @@ seat_get_touch(struct wl_client *client, struct wl_resource *resource,
 				       seat, unbind_resource);
 }
 
+static void
+tablet_release(struct wl_client *client, struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static const struct wl_tablet_interface tablet_interface = {
+	tablet_release,
+};
+
+static void
+tablet_manager_get_tablets(struct wl_client *client,
+			   struct wl_resource *resource)
+{
+	struct weston_tablet *tablet;
+	struct weston_seat *seat = wl_resource_get_user_data(resource);
+
+	/* Inform the client of any tablets that have been added to the system
+	 * that the client doesn't already know about */
+	wl_list_for_each(tablet, &seat->tablet_list, link) {
+		int already_notified = 0;
+		struct wl_resource *tablet_resource;
+
+		wl_resource_for_each(tablet_resource,
+				     &tablet->resource_list) {
+			if (wl_resource_get_client(tablet_resource) == client) {
+				already_notified = 1;
+				break;
+			}
+		}
+		if (already_notified)
+			continue;
+
+		wl_resource_for_each(tablet_resource,
+				     &tablet->focus_resource_list) {
+			if (wl_resource_get_client(tablet_resource) == client) {
+				already_notified = 1;
+				break;
+			}
+		}
+		if (already_notified)
+			continue;
+
+		tablet_resource =
+			wl_resource_create(wl_resource_get_client(resource),
+					   &wl_tablet_interface,
+					   wl_resource_get_version(resource),
+					   0);
+
+		wl_list_insert(&tablet->resource_list,
+			       wl_resource_get_link(tablet_resource));
+		wl_resource_set_implementation(tablet_resource,
+					       &tablet_interface,
+					       tablet,
+					       unbind_resource);
+
+		wl_resource_set_user_data(tablet_resource, tablet);
+		wl_tablet_manager_send_device_added(resource, tablet_resource,
+						    "Placeholder!", 0, 0, 0, 1,
+						    1, 1);
+	}
+
+}
+
+static const struct wl_tablet_manager_interface tablet_manager_interface = {
+	tablet_manager_get_tablets,
+};
+
+static void
+seat_get_tablet_manager(struct wl_client *client, struct wl_resource *resource,
+			uint32_t id)
+{
+	struct weston_seat *seat = wl_resource_get_user_data(resource);
+	struct wl_resource *cr;
+
+	cr = wl_resource_create(client, &wl_tablet_manager_interface,
+				wl_resource_get_version(resource), id);
+	if (cr == NULL) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+
+	wl_list_insert(&seat->tablet_manager_resource_list,
+		       wl_resource_get_link(cr));
+	wl_resource_set_implementation(cr, &tablet_manager_interface, seat,
+				       unbind_resource);
+	wl_resource_set_user_data(resource, seat);
+}
+
 static const struct wl_seat_interface seat_interface = {
 	seat_get_pointer,
 	seat_get_keyboard,
 	seat_get_touch,
+	seat_get_tablet_manager,
 };
 
 static void
@@ -1813,7 +2037,7 @@ bind_seat(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	enum wl_seat_capability caps = 0;
 
 	resource = wl_resource_create(client,
-				      &wl_seat_interface, MIN(version, 3), id);
+				      &wl_seat_interface, MIN(version, 4), id);
 	wl_list_insert(&seat->base_resource_list, wl_resource_get_link(resource));
 	wl_resource_set_implementation(resource, &seat_interface, data,
 				       unbind_resource);
@@ -1824,6 +2048,8 @@ bind_seat(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 		caps |= WL_SEAT_CAPABILITY_KEYBOARD;
 	if (seat->touch)
 		caps |= WL_SEAT_CAPABILITY_TOUCH;
+	if (seat->tablet_device_count)
+		caps |= WL_SEAT_CAPABILITY_TABLET;
 
 	wl_seat_send_capabilities(resource, caps);
 	if (version >= 2)
@@ -2182,6 +2408,64 @@ weston_seat_init_touch(struct weston_seat *seat)
 	seat_send_updated_caps(seat);
 }
 
+WL_EXPORT struct weston_tablet *
+weston_seat_add_tablet(struct weston_seat *seat)
+{
+	struct weston_tablet *tablet;
+	struct wl_resource *resource;
+
+	seat->tablet_device_count++;
+	if (seat->tablet_device_count == 1)
+		seat_send_updated_caps(seat);
+
+	tablet = weston_tablet_create();
+	if (tablet == NULL)
+		return NULL;
+
+	tablet->seat = seat;
+
+	wl_resource_for_each(resource, &seat->tablet_manager_resource_list) {
+		struct wl_resource *tablet_resource =
+			wl_resource_create(wl_resource_get_client(resource),
+					   &wl_tablet_interface,
+					   wl_resource_get_version(resource),
+					   0);
+
+		wl_list_insert(&tablet->resource_list,
+			       wl_resource_get_link(tablet_resource));
+		wl_resource_set_implementation(tablet_resource,
+					       &tablet_interface,
+					       tablet,
+					       unbind_resource);
+
+		wl_resource_set_user_data(tablet_resource, tablet);
+		wl_tablet_manager_send_device_added(resource, tablet_resource,
+						    "Placeholder!", 0, 0, 0, 1,
+						    1, 1);
+	}
+
+	return tablet;
+}
+
+WL_EXPORT void
+weston_seat_release_tablet(struct weston_tablet *tablet)
+{
+	struct wl_resource *resource;
+
+	// TODO: reset state (maybe?)
+	weston_tablet_set_focus(tablet, NULL, 0, 0, 0);
+	wl_resource_for_each(resource, &tablet->resource_list)
+		wl_tablet_send_removed(resource);
+
+	tablet->seat->tablet_device_count--;
+	wl_list_remove(&tablet->link);
+
+	if (tablet->seat->tablet_device_count == 0)
+		seat_send_updated_caps(tablet->seat);
+
+	weston_tablet_destroy(tablet);
+}
+
 WL_EXPORT void
 weston_seat_release_touch(struct weston_seat *seat)
 {
@@ -2206,8 +2490,10 @@ weston_seat_init(struct weston_seat *seat, struct weston_compositor *ec,
 	wl_list_init(&seat->drag_resource_list);
 	wl_signal_init(&seat->destroy_signal);
 	wl_signal_init(&seat->updated_caps_signal);
+	wl_list_init(&seat->tablet_list);
+	wl_list_init(&seat->tablet_manager_resource_list);
 
-	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 3,
+	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 4,
 					seat, bind_seat);
 
 	seat->compositor = ec;
@@ -2224,6 +2510,8 @@ weston_seat_init(struct weston_seat *seat, struct weston_compositor *ec,
 WL_EXPORT void
 weston_seat_release(struct weston_seat *seat)
 {
+	struct weston_tablet *tablet;
+
 	wl_list_remove(&seat->link);
 
 	if (seat->saved_kbd_focus)
@@ -2235,6 +2523,8 @@ weston_seat_release(struct weston_seat *seat)
 		weston_keyboard_destroy(seat->keyboard);
 	if (seat->touch)
 		weston_touch_destroy(seat->touch);
+	wl_list_for_each(tablet, &seat->tablet_list, link)
+		weston_tablet_destroy(tablet);
 
 	free (seat->seat_name);
 

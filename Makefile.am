@@ -496,6 +496,14 @@ weston_scaler_SOURCES = clients/scaler.c
 weston_scaler_LDADD = libtoytoolkit.la
 weston_scaler_CFLAGS = $(AM_CFLAGS) $(CLIENT_CFLAGS)
 
+if ENABLE_LIBINPUT_BACKEND
+demo_clients += weston-tablet
+weston_tablet_SOURCES = clients/tablet.c
+weston_tablet_LDADD = libtoytoolkit.la
+weston_tablet_CFLAGS = $(AM_CFLAGS) $(CLIENT_CFLAGS)
+
+endif
+
 if HAVE_CAIRO_GLESV2
 demo_clients += weston-nested weston-nested-client
 
