@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="wayland_tablet">
+
+  <copyright>
+      Copyright 2014 © Stephen "Lyude" Chandler Paul
+
+    Permission to use, copy, modify, distribute, and sell this
+    software and its documentation for any purpose is hereby granted
+    without fee, provided that the above copyright notice appear in
+    all copies and that both that copyright notice and this permission
+    notice appear in supporting documentation, and that the name of
+    the copyright holders not be used in advertising or publicity
+    pertaining to distribution of the software without specific,
+    written prior permission.  The copyright holders make no
+    representations about the suitability of this software for any
+    purpose.  It is provided "as is" without express or implied
+    warranty.
+
+    THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+    SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+    FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+    AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+    ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+    THIS SOFTWARE.
+  </copyright>
+
+  <interface name="wl_tablet_manager" version="1">
+    <description summary="controller object for graphic tablet devices">
+      An object that provides requests to access the graphics tablets available
+      on this system.
+    </description>
+
+    <enum name="tablet_type">
+      <description summary="tablet type">
+	Describes the type of tablet
+      </description>
+
+      <entry name="external" value="0" summary="The tablet is an external tablet, such as an Intuos"/>
+      <entry name="internal" value="1" summary="The tablet is an built-in tablet, usually in a laptop"/>
+      <entry name="display" value="2" summary="The tablet is a display tablet, such as a Cintiq"/>
+    </enum>
+
+    <event name="device_added">
+      <description summary="new device notification"/>
+      <arg name="id" type="new_id" interface="wl_tablet" summary="the newly added graphics tablet"/>
+      <arg name="name" type="string" summary="the device name"/>
+      <arg name="vid" type="uint" summary="vendor id"/>
+      <arg name="pid" type="uint" summary="product id"/>
+      <arg name="type" type="uint"/>
+      <arg name="extra_axes" type="uint" summary="A bitfield of all of the extra axes the tablet supports"/>
+    </event>
+  </interface>
+
+  <interface name="wl_tablet" version="1">
+    <description summary="drawing tablet device">
+      The wl_tablet interface represents one or more drawing tablet devices.
+
+      The wl_tablet interface generates axis events, enter, and leave events for
+      the surfaces that the tool is held over and button events for the buttons
+      on a tablet tool.
+
+      Since the ability to differentiate between which tablet is sending any
+      particular event, each tablet has it's own id. The id ranges from 0 to 49,
+      allowing for a total of 50 tablets to be connected at the same time. IDs
+      are aggresively recycled, so it is always guaranteed that the ID of the
+      next tablet will never be greater then the number of tablets currently
+      connected.
+    </description>
+
+    <enum name="button_state">
+      <description summary="physical button state">
+	Describes the physical state of a button which provoked the button event
+      </description>
+      <entry name="released" value="0" summary="button is not pressed"/>
+      <entry name="pressed" value="1" summary="button is pressed"/>
+    </enum>
+
+    <enum name="tool_type">
+      <description summary="a physical tool type">
+	Describes the physical type of a tool.
+      </description>
+      <entry name="pen" value="0x140" summary="Pen tool"/>
+      <entry name="eraser" value="0x141" summary="Eraser tool"/>
+      <entry name="brush" value="0x142" summary="Brush tool"/>
+      <entry name="pencil" value="0x143" summary="Pencil tool"/>
+      <entry name="airbrush" value="0x144" summary="Airbrush tool"/>
+      <entry name="finger" value="0x145" summary="Finger tool"/>
+      <entry name="mouse" value="0x146" summary="Mouse tool"/>
+      <entry name="lens" value="0x147" summary="Lens tool"/>
+    </enum>
+
+    <enum name="axis_flag">
+      <description summary="a group of additional axes for a tablet">
+	Describes a group of additional axes on a tablet.
+      </description>
+      <entry name="tilt" value="0" summary="Tilt axes"/>
+      <entry name="pressure" value="1" summary="Pressure axis"/>
+      <entry name="distance" value="2" summary="Distance axis"/>
+    </enum>
+
+    <event name="proximity_in">
+      <description summary="proximity in event">
+	Notification that this tablet's tool is focused on a certain surface.
+
+	This event can be received when the tool has moved from one surface to
+	another, or when the tool has come back into proximity.
+      </description>
+
+      <arg name="type" type="uint" summary="The respective tool type"/>
+      <arg name="serial" type="uint" summary="The serial number of the tool"/>
+      <arg name="surface" type="object" interface="wl_surface" summary="The current surface the tablet tool is over"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="proximity_out">
+      <description summary="proximity out event">
+	Notification that this tablet's tool has either left proximity, or is no
+	longer focused on a certain surface.
+
+	When this event is received, all axes can be assumed to have a value of
+	0. In addition, a button release event will be sent for any buttons that
+	were held down on the stylus before it left proximity.
+      </description>
+
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="motion">
+      <description summary="motion event">
+	Sent whenever a tablet tool moves.
+      </description>
+      <arg name="x" type="fixed" summary="surface-relative x coordinate"/>
+      <arg name="y" type="fixed" summary="surface-relative y coordinate"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="pressure">
+      <description summary="pressure change event">
+	Sent whenever the pressure axis on a tool changes. The value of this
+	event is normalized to a value between 0 and 65535.
+      </description>
+      <arg name="pressure" type="fixed" summary="The current pressure value"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="distance">
+      <description summary="distance change event">
+	Sent whenever the distance axis on a tool changes. The value of this
+	event is normalized to a value between 0 and 65535.
+      </description>
+      <arg name="distance" type="fixed" summary="The current distance value"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="tilt">
+      <description summary="tilt change event">
+	Sent whenever one or both of the tilt axes on a tool change. Each tilt
+	value is normalized between -65535 and 65535.
+      </description>
+      <arg name="tilt_x" type="fixed" summary="The current value of the X tilt axis"/>
+      <arg name="tilt_y" type="fixed" summary="The current value of the Y tilt axis"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="button">
+      <description summary="button event">
+	Sent whenever a button on the stylus is pressed or released.
+      </description>
+
+      <arg name="button" type="uint" summary="The button whose state has changed"/>
+      <arg name="state" type="uint" summary="Whether the button was pressed or released"/>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+    </event>
+
+    <event name="frame">
+      <description summary="frame event">
+	Marks the end of a series of events from a tablet.
+      </description>
+    </event>
+
+    <event name="removed">
+      <description summary="tablet removed event">
+	Sent when the tablet has been removed from the system.
+      </description>
+    </event>
+
+    <request name="release" type="destructor">
+      <description summary="release the tablet object"/>
+    </request>
+  </interface>
+</protocol>
