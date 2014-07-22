@@ -67,6 +67,7 @@ typedef void *EGLContext;
 #include "../shared/cairo-util.h"
 #include "xdg-shell-client-protocol.h"
 #include "text-cursor-position-client-protocol.h"
+#include "wayland-tablet-client-protocol.h"
 #include "workspaces-client-protocol.h"
 #include "../shared/os-compatibility.h"
 
@@ -88,6 +89,7 @@ struct display {
 	struct wl_subcompositor *subcompositor;
 	struct wl_shm *shm;
 	struct wl_data_device_manager *data_device_manager;
+	struct wl_tablet_manager *tablet_manager;
 	struct text_cursor_position *text_cursor_position;
 	struct workspace_manager *workspace_manager;
 	struct xdg_shell *xdg_shell;
@@ -110,6 +112,7 @@ struct display {
 	struct wl_list window_list;
 	struct wl_list input_list;
 	struct wl_list output_list;
+	struct wl_list tablet_list;
 
 	struct theme *theme;
 
@@ -133,6 +136,24 @@ struct display {
 
 	int has_rgb565;
 	int seat_version;
+};
+
+struct tablet {
+	struct wl_tablet *tablet;
+	double sx, sy;
+	struct display *display;
+
+	struct window *focus;
+	struct widget *focus_widget;
+
+	char *name;
+	int32_t vid;
+	int32_t pid;
+	enum wl_tablet_manager_tablet_type type;
+
+	void *user_data;
+
+	struct wl_list link;
 };
 
 struct window_output {
@@ -275,6 +296,7 @@ struct widget {
 	widget_touch_frame_handler_t touch_frame_handler;
 	widget_touch_cancel_handler_t touch_cancel_handler;
 	widget_axis_handler_t axis_handler;
+	widget_tablet_motion_handler_t tablet_motion_handler;
 	void *user_data;
 	int opaque;
 	int tooltip_count;
@@ -1895,6 +1917,13 @@ widget_set_axis_handler(struct widget *widget,
 	widget->axis_handler = handler;
 }
 
+void
+widget_set_tablet_motion_handler(struct widget *widget,
+				 widget_tablet_motion_handler_t handler)
+{
+	widget->tablet_motion_handler = handler;
+}
+
 static void
 window_schedule_redraw_task(struct window *window);
 
@@ -2521,6 +2550,31 @@ input_ungrab(struct input *input)
 	}
 }
 
+struct display *
+tablet_get_display(struct tablet *tablet)
+{
+	return tablet->display;
+}
+
+void
+tablet_get_position(struct tablet *tablet, int32_t *x, int32_t *y)
+{
+	*x = tablet->sx;
+	*y = tablet->sy;
+}
+
+void
+tablet_set_user_data(struct tablet *tablet, void *data)
+{
+	tablet->user_data = data;
+}
+
+void *
+tablet_get_user_data(struct tablet *tablet)
+{
+	return tablet->user_data;
+}
+
 static void
 input_remove_pointer_focus(struct input *input)
 {
@@ -3061,6 +3115,123 @@ static const struct wl_touch_listener touch_listener = {
 	touch_handle_motion,
 	touch_handle_frame,
 	touch_handle_cancel,
+};
+
+static void
+tablet_handle_proximity_in(void *data, struct wl_tablet *wl_tablet,
+			   uint32_t serial, uint32_t time, uint32_t tool_type,
+			   uint32_t tool_serial, struct wl_surface *surface)
+{
+	struct tablet *tablet = data;
+	struct window *window;
+
+	DBG("tablet_handle_proximity_in\n");
+
+	window = wl_surface_get_user_data(surface);
+	if (surface != window->main_surface->surface) {
+		DBG("Ignoring input event from subsurface %p\n", surface);
+		return;
+	}
+	tablet->focus = window;
+}
+
+static void
+tablet_handle_proximity_out(void *data, struct wl_tablet *wl_tablet,
+			    uint32_t time)
+{
+	struct tablet *tablet = data;
+
+	tablet->focus = NULL;
+}
+
+static void
+tablet_handle_motion(void *data, struct wl_tablet *wl_tablet, uint32_t time,
+		     wl_fixed_t w_sx, wl_fixed_t w_sy)
+{
+	struct tablet *tablet = data;
+	double sx = wl_fixed_to_double(w_sx);
+	double sy = wl_fixed_to_double(w_sy);
+	struct window *window = tablet->focus;
+	struct widget *widget;
+
+	DBG("tablet_handle_motion");
+
+	if (!window)
+		return;
+
+	tablet->sx = sx;
+	tablet->sy = sy;
+
+	if (sx > window->main_surface->allocation.width ||
+	    sy > window->main_surface->allocation.height)
+		return;
+
+	widget = window_find_widget(window, sx, sy);
+	if (widget && widget->tablet_motion_handler) {
+		widget->tablet_motion_handler(widget, tablet, sx, sy, time,
+					      widget->user_data);
+	}
+}
+
+static void
+tablet_handle_removed(void *data, struct wl_tablet *wl_tablet)
+{
+	struct tablet *tablet = data;
+
+	wl_list_remove(&tablet->link);
+	free(tablet->name);
+	free(tablet);
+
+	wl_tablet_release(wl_tablet);
+}
+
+static void
+tablet_handle_frame(void *data, struct wl_tablet *wl_tablet)
+{
+
+}
+
+static const struct wl_tablet_listener tablet_listener = {
+	tablet_handle_proximity_in,
+	tablet_handle_proximity_out,
+	tablet_handle_motion,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	tablet_handle_frame,
+	tablet_handle_removed,
+};
+
+static void
+tablet_manager_handle_device_added(void *data,
+				   struct wl_tablet_manager *wl_tablet_manager,
+				   struct wl_tablet *wl_tablet,
+				   const char *name, uint32_t vid, uint32_t pid,
+				   uint32_t type, uint32_t extra_axes)
+{
+	struct display *display = data;
+	struct tablet *tablet = xzalloc(sizeof(*tablet));
+
+	*tablet = (struct tablet) {
+		.name = strdup(name),
+		.vid = vid,
+		.pid = pid,
+		.type = type,
+		.display = data,
+		.tablet = wl_tablet,
+	};
+	wl_list_insert(&display->tablet_list, &tablet->link);
+
+	DBG("tablet_manager_handle_device_added");
+
+	wl_tablet_add_listener(wl_tablet, &tablet_listener, tablet);
+}
+
+static const struct wl_tablet_manager_listener tablet_manager_listener = {
+	tablet_manager_handle_device_added,
 };
 
 static void
@@ -5098,6 +5269,12 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		d->data_device_manager =
 			wl_registry_bind(registry, id,
 					 &wl_data_device_manager_interface, 1);
+	} else if (strcmp(interface, "wl_tablet_manager") == 0) {
+		d->tablet_manager =
+			wl_registry_bind(registry, id,
+					 &wl_tablet_manager_interface, 1);
+		wl_tablet_manager_add_listener(d->tablet_manager,
+					       &tablet_manager_listener, d);
 	} else if (strcmp(interface, "xdg_shell") == 0) {
 		d->xdg_shell = wl_registry_bind(registry, id,
 						&xdg_shell_interface, 1);
@@ -5331,6 +5508,7 @@ display_create(int *argc, char *argv[])
 	wl_list_init(&d->input_list);
 	wl_list_init(&d->output_list);
 	wl_list_init(&d->global_list);
+	wl_list_init(&d->tablet_list);
 
 	d->workspace = 0;
 	d->workspace_count = 1;
@@ -5380,6 +5558,18 @@ display_destroy_inputs(struct display *display)
 		input_destroy(input);
 }
 
+static void
+display_destroy_tablets(struct display *display)
+{
+	struct tablet *tmp;
+	struct tablet *tablet;
+
+	wl_list_for_each_safe(tablet, tmp, &display->tablet_list, link) {
+		free(tablet->name);
+		free(tablet);
+	}
+}
+
 void
 display_destroy(struct display *display)
 {
@@ -5395,6 +5585,7 @@ display_destroy(struct display *display)
 
 	display_destroy_outputs(display);
 	display_destroy_inputs(display);
+	display_destroy_tablets(display);
 
 	xkb_context_unref(display->xkb_context);
 
