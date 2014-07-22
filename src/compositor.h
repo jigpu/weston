@@ -33,6 +33,7 @@ extern "C" {
 
 #define WL_HIDE_DEPRECATED
 #include <wayland-server.h>
+#include <wayland-tablet-server-protocol.h>
 
 #include "version.h"
 #include "matrix.h"
@@ -358,6 +359,28 @@ struct weston_touch {
 	uint32_t grab_time;
 };
 
+struct weston_tablet {
+	struct weston_seat *seat;
+	struct evdev_device *device;
+
+	struct wl_list resource_list;
+	struct wl_list focus_resource_list;
+	struct weston_view *focus;
+	struct wl_listener focus_view_listener;
+	struct wl_listener focus_resource_listener;
+	uint32_t focus_serial;
+	struct wl_signal focus_signal;
+	uint32_t event_time;
+
+	wl_fixed_t x, y;
+
+	struct wl_list link;
+	enum wl_tablet_manager_tablet_type type;
+	uint32_t vid;
+	uint32_t pid;
+	struct weston_output *output;
+};
+
 struct weston_pointer *
 weston_pointer_create(struct weston_seat *seat);
 void
@@ -406,6 +429,14 @@ weston_touch_start_grab(struct weston_touch *device,
 			struct weston_touch_grab *grab);
 void
 weston_touch_end_grab(struct weston_touch *touch);
+
+struct weston_tablet *
+weston_tablet_create(void);
+void
+weston_tablet_destroy(struct weston_tablet *tablet);
+void
+weston_tablet_set_focus(struct weston_tablet *tablet, struct weston_view *view,
+			uint32_t time);
 
 void
 wl_data_device_set_keyboard_focus(struct weston_seat *seat);
@@ -490,9 +521,11 @@ struct weston_seat {
 	struct weston_pointer *pointer;
 	struct weston_keyboard *keyboard;
 	struct weston_touch *touch;
+	struct wl_list tablet_list;
 	int pointer_device_count;
 	int keyboard_device_count;
 	int touch_device_count;
+	int tablet_device_count;
 
 	struct weston_output *output; /* constraint */
 
@@ -510,6 +543,9 @@ struct weston_seat {
 	struct weston_data_source *selection_data_source;
 	struct wl_listener selection_data_source_listener;
 	struct wl_signal selection_signal;
+
+	struct wl_global *tablet_manager;
+	struct wl_list tablet_manager_resource_list;
 
 	void (*led_update)(struct weston_seat *ws, enum weston_led leds);
 
@@ -1006,6 +1042,12 @@ void
 notify_touch_frame(struct weston_seat *seat);
 
 void
+notify_tablet_motion(struct weston_seat *seat, struct weston_tablet *tablet,
+		     wl_fixed_t x, wl_fixed_t y, uint32_t time);
+void
+notify_tablet_frame(struct weston_tablet *tablet);
+
+void
 weston_layer_entry_insert(struct weston_layer_entry *list,
 			  struct weston_layer_entry *entry);
 void
@@ -1257,6 +1299,10 @@ void
 weston_seat_init_touch(struct weston_seat *seat);
 void
 weston_seat_release_touch(struct weston_seat *seat);
+struct weston_tablet *
+weston_seat_add_tablet(struct weston_seat *seat);
+void
+weston_seat_release_tablet(struct weston_tablet *tablet);
 void
 weston_seat_repick(struct weston_seat *seat);
 void
