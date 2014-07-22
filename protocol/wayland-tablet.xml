@@ -109,7 +109,7 @@
       </description>
 
       <arg name="type" type="uint" summary="The respective tool type"/>
-      <arg name="serial" type="uint" summary="The serial number of the tool"/>
+      <arg name="tool_serial" type="uint" summary="The serial number of the tool"/>
       <arg name="surface" type="object" interface="wl_surface" summary="The current surface the tablet tool is over"/>
       <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
     </event>
@@ -188,6 +188,37 @@
 
     <request name="release" type="destructor">
       <description summary="release the tablet object"/>
+    </request>
+
+    <request name="set_cursor">
+      <description summary="set the tablet tool's surface">
+	Sets the surface of the pointer used for the tablet's tool object. This
+	surface is only shown when the tool is in proximity of the tablet. If
+	the surface is NULL, the pointer image is hidden completely.
+
+	The parameters hotspot_x and hotspot_y define the position of the
+	pointer surface relative to the pointer location. Its top-left corner
+	is always at (x, y) - (hotspot_x, hotspot_y), where (x, y) are the
+	coordinates of the pointer location, in surface local coordinates.
+
+	On surface.attach requests to the pointer surface, hotspot_x and
+	hotspot_y are decremented by the x and y parameters passed to the
+	request. Attach must be confirmed by wl_surface.commit as usual.
+
+	The hotspot can also be updated by passing the currently set pointer
+	surface to this request with new values for hotspot_x and hotspot_y.
+
+	The current and pending input regions of the wl_surface are cleared,
+	and wl_surface.set_input_region is ignored until the wl_surface is no
+	longer used as the cursor. When the use as a cursor ends, the current
+	and pending input regions become undefined, and the wl_surface is
+	unmapped.
+      </description>
+
+      <arg name="serial" type="uint" summary="serial of the enter event"/>
+      <arg name="surface" type="object" interface="wl_surface" allow-null="true"/>
+      <arg name="hotspot_x" type="int" summary="x coordinate in surface-relative coordinates"/>
+      <arg name="hotspot_y" type="int" summary="y coordinate in surface-relative coordinates"/>
     </request>
   </interface>
 </protocol>
