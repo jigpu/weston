@@ -78,7 +78,9 @@ nodist_weston_SOURCES =					\
 	protocol/workspaces-protocol.c			\
 	protocol/workspaces-server-protocol.h		\
 	protocol/scaler-protocol.c			\
-	protocol/scaler-server-protocol.h
+	protocol/scaler-server-protocol.h		\
+	protocol/wayland-tablet-protocol.c		\
+	protocol/wayland-tablet-server-protocol.h
 
 BUILT_SOURCES += $(nodist_weston_SOURCES)
 
@@ -445,7 +447,9 @@ nodist_libtoytoolkit_la_SOURCES =			\
 	protocol/workspaces-protocol.c			\
 	protocol/workspaces-client-protocol.h		\
 	protocol/xdg-shell-protocol.c			\
-	protocol/xdg-shell-client-protocol.h
+	protocol/xdg-shell-client-protocol.h		\
+	protocol/wayland-tablet-protocol.c		\
+	protocol/wayland-tablet-client-protocol.h
 
 BUILT_SOURCES += $(nodist_libtoytoolkit_la_SOURCES)
 
@@ -630,7 +634,9 @@ BUILT_SOURCES +=					\
 	protocol/fullscreen-shell-protocol.c		\
 	protocol/fullscreen-shell-client-protocol.h	\
 	protocol/xdg-shell-protocol.c			\
-	protocol/xdg-shell-client-protocol.h
+	protocol/xdg-shell-client-protocol.h		\
+	protocol/wayland-tablet-protocol.c		\
+	protocol/wayland-tablet-client-protocol.h
 
 
 westondatadir = $(datadir)/weston
@@ -983,7 +989,8 @@ EXTRA_DIST +=					\
 	protocol/wayland-test.xml		\
 	protocol/xdg-shell.xml			\
 	protocol/fullscreen-shell.xml		\
-	protocol/scaler.xml
+	protocol/scaler.xml			\
+	protocol/wayland-tablet.xml
 
 man_MANS = weston.1 weston.ini.5
 
