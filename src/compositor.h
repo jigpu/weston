@@ -372,7 +372,11 @@ struct weston_tablet {
 	struct wl_signal focus_signal;
 	uint32_t event_time;
 
+	int32_t hotspot_x, hotspot_y;
 	wl_fixed_t x, y;
+
+	struct weston_view *sprite;
+	struct wl_listener sprite_destroy_listener;
 
 	struct wl_list link;
 	enum wl_tablet_manager_tablet_type type;
@@ -437,6 +441,12 @@ weston_tablet_destroy(struct weston_tablet *tablet);
 void
 weston_tablet_set_focus(struct weston_tablet *tablet, struct weston_view *view,
 			uint32_t time);
+void
+weston_tablet_clamp(struct weston_tablet *tablet, wl_fixed_t *fx,
+		    wl_fixed_t *fy);
+void
+weston_tablet_cursor_move(struct weston_tablet *tablet, wl_fixed_t x,
+			  wl_fixed_t y);
 
 void
 wl_data_device_set_keyboard_focus(struct weston_seat *seat);
