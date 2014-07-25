@@ -208,7 +208,7 @@ button_handler(struct widget *widget,
 	widget_schedule_redraw(widget);
 }
 
-static void
+static int
 motion_handler(struct widget *widget, struct tablet *tablet, float x, float y,
 	       uint32_t time, void *data)
 {
@@ -217,6 +217,7 @@ motion_handler(struct widget *widget, struct tablet *tablet, float x, float y,
 	tablet_view->line.y = y;
 
 	window_schedule_redraw(tablet_view->window);
+	return CURSOR_IBEAM;
 }
 
 static void
