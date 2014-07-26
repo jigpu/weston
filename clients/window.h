@@ -652,6 +652,12 @@ output_get_model(struct output *output);
 struct display *
 tablet_get_display(struct tablet *tablet);
 
+enum wl_tablet_tool_type
+tablet_get_tool_type(struct tablet *tablet);
+
+uint32_t
+tablet_get_tool_serial(struct tablet *tablet);
+
 void
 tablet_get_position(struct tablet *tablet, int32_t *x, int32_t *y);
 

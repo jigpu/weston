@@ -152,6 +152,9 @@ struct tablet {
 	uint32_t cursor_anim_start;
 	struct wl_callback *cursor_frame_cb;
 
+	enum wl_tablet_tool_type tool_type;
+	uint32_t tool_serial;
+
 	char *name;
 	int32_t vid;
 	int32_t pid;
@@ -2586,6 +2589,18 @@ tablet_get_display(struct tablet *tablet)
 	return tablet->display;
 }
 
+enum wl_tablet_tool_type
+tablet_get_tool_type(struct tablet *tablet)
+{
+	return tablet->tool_type;
+}
+
+uint32_t
+tablet_get_tool_serial(struct tablet *tablet)
+{
+	return tablet->tool_serial;
+}
+
 void
 tablet_get_position(struct tablet *tablet, int32_t *x, int32_t *y)
 {
@@ -3296,6 +3311,8 @@ tablet_handle_proximity_in(void *data, struct wl_tablet *wl_tablet,
 	}
 	tablet->focus = window;
 	tablet->enter_serial = serial;
+	tablet->tool_type = tool_type;
+	tablet->tool_serial = tool_serial;
 }
 
 static void
