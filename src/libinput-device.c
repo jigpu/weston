@@ -219,6 +219,20 @@ handle_touch_frame(struct libinput_device *libinput_device,
 }
 
 static void
+handle_tablet_proximity_in(struct libinput_device *libinput_device,
+			   struct libinput_event_tablet *proximity_in_event)
+{
+	struct evdev_device *device =
+		libinput_device_get_user_data(libinput_device);
+	struct weston_tablet *tablet = device->tablet;
+	struct libinput_tool *tool =
+		libinput_event_tablet_get_tool(proximity_in_event);
+
+	tablet->tool_type = libinput_tool_get_type(tool);
+	tablet->tool_serial = libinput_tool_get_serial(tool);
+}
+
+static void
 handle_tablet_axis(struct libinput_device *libinput_device,
 		   struct libinput_event_tablet *axis_event)
 {
@@ -309,6 +323,10 @@ evdev_device_process_event(struct libinput_event *event)
 	case LIBINPUT_EVENT_TABLET_AXIS:
 		handle_tablet_axis(libinput_device,
 				   libinput_event_get_tablet_event(event));
+		break;
+	case LIBINPUT_EVENT_TABLET_PROXIMITY_IN:
+		handle_tablet_proximity_in(
+		    libinput_device, libinput_event_get_tablet_event(event));
 		break;
 	case LIBINPUT_EVENT_TABLET_PROXIMITY_OUT:
 		handle_tablet_proximity_out(

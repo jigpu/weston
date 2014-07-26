@@ -693,7 +693,8 @@ weston_tablet_set_focus(struct weston_tablet *tablet, struct weston_view *view,
 
 		wl_resource_for_each(resource, focus_resource_list)
 			wl_tablet_send_proximity_in(resource, focus_serial,
-						    time, 0, 0,
+						    time, tablet->tool_type,
+						    tablet->tool_serial,
 						    view->surface->resource);
 
 		tablet->focus_serial = focus_serial;

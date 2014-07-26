@@ -372,6 +372,9 @@ struct weston_tablet {
 	struct wl_signal focus_signal;
 	uint32_t event_time;
 
+	uint32_t tool_serial;
+	enum wl_tablet_tool_type tool_type;
+
 	int32_t hotspot_x, hotspot_y;
 	wl_fixed_t x, y;
 
