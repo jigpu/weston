@@ -1732,6 +1732,36 @@ notify_tablet_motion(struct weston_seat *seat, struct weston_tablet *tablet,
 	}
 }
 
+WL_EXPORT void
+notify_tablet_button(struct weston_tablet *tablet, uint32_t time,
+		     uint32_t button, enum wl_tablet_button_state state)
+{
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+	struct weston_compositor *compositor = tablet->seat->compositor;
+	uint32_t serial = wl_display_next_serial(compositor->wl_display);
+
+	if (state == WL_TABLET_BUTTON_STATE_PRESSED) {
+		tablet->button_count++;
+		if (tablet->button_count == 1)
+			weston_compositor_idle_inhibit(compositor);
+	} else {
+		tablet->button_count--;
+		if (tablet->button_count == 0)
+			weston_compositor_idle_release(compositor);
+	}
+
+	/* TODO: Run the weston compositor button binding, we need to figure
+	 * out what we're going to do about the whole `enum
+	 * wl_pointer_button_state` situation in order to do that */
+
+	if (!wl_list_empty(resource_list)) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_button(resource, serial, time, button,
+					      state);
+	}
+}
+
 static void
 pointer_cursor_surface_configure(struct weston_surface *es,
 				 int32_t dx, int32_t dy)

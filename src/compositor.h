@@ -378,6 +378,8 @@ struct weston_tablet {
 	int32_t hotspot_x, hotspot_y;
 	wl_fixed_t x, y;
 
+	int button_count;
+
 	struct weston_view *sprite;
 	struct wl_listener sprite_destroy_listener;
 
@@ -1057,6 +1059,9 @@ notify_touch_frame(struct weston_seat *seat);
 void
 notify_tablet_motion(struct weston_seat *seat, struct weston_tablet *tablet,
 		     wl_fixed_t x, wl_fixed_t y, uint32_t time);
+void
+notify_tablet_button(struct weston_tablet *tablet, uint32_t time,
+		     uint32_t button, enum wl_tablet_button_state state);
 void
 notify_tablet_frame(struct weston_tablet *tablet);
 
