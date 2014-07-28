@@ -210,6 +210,10 @@ frame_touch_down(struct frame *frame, void *data, int32_t id, int x, int y);
 void
 frame_touch_up(struct frame *frame, void *data, int32_t id);
 
+/* May set FRAME_STATUS_REPAINT */
+enum theme_location
+frame_tablet_motion(struct frame *frame, void *pointer, int x, int y);
+
 void
 frame_repaint(struct frame *frame, cairo_t *cr);
 
