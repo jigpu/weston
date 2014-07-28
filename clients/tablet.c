@@ -195,15 +195,14 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 }
 
 static void
-button_handler(struct widget *widget,
-	       struct input *input, uint32_t time,
-	       uint32_t button,
-	       enum wl_pointer_button_state state, void *data)
+button_handler(struct widget *widget, struct tablet *tablet, uint32_t button,
+	       enum wl_tablet_button_state state, uint32_t time, void *data)
 {
 	struct tablet_view *tablet_view = data;
 
-	if (state == WL_POINTER_BUTTON_STATE_PRESSED && button == BTN_LEFT)
-		input_get_position(input, &tablet_view->dot.x, &tablet_view->dot.y);
+	if (state == WL_TABLET_BUTTON_STATE_PRESSED && button == BTN_STYLUS)
+		tablet_get_position(tablet,
+				    &tablet_view->dot.x, &tablet_view->dot.y);
 
 	widget_schedule_redraw(widget);
 }
@@ -257,7 +256,7 @@ tablet_view_create(struct display *display)
 					  keyboard_focus_handler);
 
 	widget_set_redraw_handler(tablet_view->widget, redraw_handler);
-	/*widget_set_button_handler(tablet_view->widget, button_handler);*/
+	widget_set_tablet_button_handler(tablet_view->widget, button_handler);
 	widget_set_tablet_motion_handler(tablet_view->widget, motion_handler);
 	widget_set_resize_handler(tablet_view->widget, resize_handler);
 	/*widget_set_leave_handler(tablet_view->widget, leave_handler);*/
