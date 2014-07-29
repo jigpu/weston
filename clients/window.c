@@ -2471,6 +2471,17 @@ frame_tablet_motion_handler(struct widget *widget, struct tablet *tablet,
 	return frame_get_pointer_image_for_location(data, location);
 }
 
+static void
+frame_tablet_down_handler(struct widget *widget, struct tablet *tablet,
+			  uint32_t time, void *data)
+{
+	struct window_frame *frame = data;
+	enum theme_location location;
+
+	/* Map a stylus touch to the left mouse button */
+	location = frame_pointer_button(frame->frame, tablet, BTN_LEFT, 1);
+}
+
 struct widget *
 window_frame_create(struct window *window, void *data)
 {
