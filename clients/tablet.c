@@ -41,6 +41,11 @@ struct tablet_view {
 
 	cairo_surface_t *buffer;
 
+	enum {
+		TABLET_TOOL_UP = 0,
+		TABLET_TOOL_DOWN = 1,
+	} tablet_contact_status;
+
 	struct {
 		int32_t x, y;
 	} dot;
@@ -212,11 +217,16 @@ motion_handler(struct widget *widget, struct tablet *tablet, float x, float y,
 	       uint32_t time, void *data)
 {
 	struct tablet_view *tablet_view = data;
-	tablet_view->line.x = x;
-	tablet_view->line.y = y;
 
-	window_schedule_redraw(tablet_view->window);
-	return CURSOR_IBEAM;
+	if (tablet_view->tablet_contact_status == TABLET_TOOL_DOWN) {
+		tablet_view->line.x = x;
+		tablet_view->line.y = y;
+
+		window_schedule_redraw(tablet_view->window);
+		return CURSOR_IBEAM;
+	}
+
+	return CURSOR_LEFT_PTR;
 }
 
 static void
@@ -236,6 +246,24 @@ leave_handler(struct widget *widget,
 	struct tablet_view *tablet_view = data;
 
 	tablet_view->reset = 1;
+}
+
+static void
+down_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+	     void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	tablet_view->tablet_contact_status = TABLET_TOOL_DOWN;
+}
+
+static void
+up_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+	   void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	tablet_view->tablet_contact_status = TABLET_TOOL_UP;
 }
 
 static struct tablet_view *
@@ -259,6 +287,8 @@ tablet_view_create(struct display *display)
 	widget_set_tablet_button_handler(tablet_view->widget, button_handler);
 	widget_set_tablet_motion_handler(tablet_view->widget, motion_handler);
 	widget_set_resize_handler(tablet_view->widget, resize_handler);
+	widget_set_tablet_down_handler(tablet_view->widget, down_handler);
+	widget_set_tablet_up_handler(tablet_view->widget, up_handler);
 	/*widget_set_leave_handler(tablet_view->widget, leave_handler);*/
 
 	widget_schedule_resize(tablet_view->widget, 1000, 800);
