@@ -673,6 +673,9 @@ weston_tablet_set_focus(struct weston_tablet *tablet, struct weston_view *view,
 
 	if (tablet->focus && !wl_list_empty(focus_resource_list)) {
 		wl_resource_for_each(resource, focus_resource_list) {
+			if (tablet->tool_contact_status == WESTON_TOOL_DOWN)
+				wl_tablet_send_up(resource, time);
+
 			wl_tablet_send_proximity_out(resource, time);
 			wl_tablet_send_frame(resource);
 		}
@@ -691,11 +694,15 @@ weston_tablet_set_focus(struct weston_tablet *tablet, struct weston_view *view,
 		focus_serial =
 			wl_display_next_serial(tablet->seat->compositor->wl_display);
 
-		wl_resource_for_each(resource, focus_resource_list)
+		wl_resource_for_each(resource, focus_resource_list) {
 			wl_tablet_send_proximity_in(resource, focus_serial,
 						    time, tablet->tool_type,
 						    tablet->tool_serial,
 						    view->surface->resource);
+
+			if (tablet->tool_contact_status == WESTON_TOOL_DOWN)
+				wl_tablet_send_down(resource, time);
+		}
 
 		tablet->focus_serial = focus_serial;
 	} else if (tablet->sprite)
@@ -1760,6 +1767,40 @@ notify_tablet_button(struct weston_tablet *tablet, uint32_t time,
 			wl_tablet_send_button(resource, serial, time, button,
 					      state);
 	}
+}
+
+WL_EXPORT void
+notify_tablet_down(struct weston_tablet *tablet, uint32_t time)
+{
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+	struct weston_compositor *compositor = tablet->seat->compositor;
+
+	weston_compositor_idle_inhibit(compositor);
+
+	if (!wl_list_empty(resource_list)) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_down(resource, time);
+	}
+
+	tablet->tool_contact_status = WESTON_TOOL_DOWN;
+}
+
+WL_EXPORT void
+notify_tablet_up(struct weston_tablet *tablet, uint32_t time)
+{
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+	struct weston_compositor *compositor = tablet->seat->compositor;
+
+	weston_compositor_idle_release(compositor);
+
+	if (!wl_list_empty(resource_list)) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_up(resource, time);
+	}
+
+	tablet->tool_contact_status = WESTON_TOOL_UP;
 }
 
 static void
