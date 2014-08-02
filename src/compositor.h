@@ -46,6 +46,9 @@ extern "C" {
 #include "zalloc.h"
 #include "timeline-object.h"
 
+#define WL_TABLET_AXIS_MAX 65535
+#define WL_TABLET_AXIS_MIN (-65535)
+
 struct weston_transform {
 	struct weston_matrix matrix;
 	struct wl_list link;
@@ -455,6 +458,7 @@ struct weston_tablet {
 	enum wl_tablet_manager_tablet_type type;
 	uint32_t vid;
 	uint32_t pid;
+	enum wl_tablet_axis_flag supported_axes;
 	struct weston_output *output;
 };
 
@@ -1228,6 +1232,15 @@ notify_tablet_proximity_out(struct weston_tablet *tablet, uint32_t time);
 void
 notify_tablet_motion(struct weston_tablet *tablet, uint32_t time,
 		     wl_fixed_t x, wl_fixed_t y);
+void
+notify_tablet_pressure(struct weston_tablet *tablet, uint32_t time,
+		       wl_fixed_t pressure);
+void
+notify_tablet_distance(struct weston_tablet *tablet, uint32_t time,
+		       wl_fixed_t distance);
+void
+notify_tablet_tilt(struct weston_tablet *tablet, uint32_t time,
+		   wl_fixed_t tilt_x, wl_fixed_t tilt_y);
 void
 notify_tablet_button(struct weston_tablet *tablet, uint32_t time,
 		     uint32_t button, enum wl_tablet_button_state state);
