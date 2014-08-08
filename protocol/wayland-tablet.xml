@@ -146,9 +146,9 @@
       <description summary="a group of additional axes for a tablet">
 	Describes a group of additional axes on a tablet.
       </description>
-      <entry name="tilt" value="0" summary="Tilt axes"/>
-      <entry name="pressure" value="1" summary="Pressure axis"/>
-      <entry name="distance" value="2" summary="Distance axis"/>
+      <entry name="tilt" value="1" summary="Tilt axes"/>
+      <entry name="pressure" value="2" summary="Pressure axis"/>
+      <entry name="distance" value="4" summary="Distance axis"/>
     </enum>
 
     <event name="proximity_in">
