@@ -261,7 +261,7 @@ handle_tablet_proximity_in(struct libinput_device *libinput_device,
 			return;
 		}
 
-		tool = malloc(sizeof *tool);
+		tool = zalloc(sizeof *tool);
 		if (!tool) {
 			weston_log("failed to allocate memory for a new "
 				   "tablet tool, events from this tool will be "
