@@ -34,6 +34,8 @@
 
 #include "window.h"
 
+#define AXIS2DOUBLE(a) (wl_fixed_to_double(a)/65535.0)
+
 struct tablet_view {
 	struct display *display;
 	struct window *window;
@@ -55,6 +57,7 @@ struct tablet_view {
 	struct {
 		int32_t x, y;
 		int32_t old_x, old_y;
+		float w;
 	} line;
 
 	int reset;
@@ -105,7 +108,7 @@ draw_line(struct tablet_view *tablet_view, cairo_t *cr,
 	if (tablet_view->line.x != -1 && tablet_view->line.y != -1) {
 		if (tablet_view->line.old_x != -1 &&
 		    tablet_view->line.old_y != -1) {
-			cairo_set_line_width(bcr, 2.0);
+			cairo_set_line_width(bcr, 4.0*tablet_view->line.w);
 			cairo_set_source_rgb(bcr, 1, 1, 1);
 			cairo_translate(bcr,
 					-allocation->x, -allocation->y);
@@ -163,10 +166,17 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_translate(cr, tablet_view->dot.x + 0.5, tablet_view->dot.y + 0.5);
 	cairo_set_line_width(cr, 1.0);
 	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
+
 	cairo_move_to(cr, 0.0, -r);
 	cairo_line_to(cr, 0.0, r);
 	cairo_move_to(cr, -r, 0.0);
 	cairo_line_to(cr, r, 0.0);
+	cairo_stroke(cr);
+
+	cairo_set_source_rgba(cr, 0.9, 0.1, 0.1, tablet_view->line.w);
+	cairo_arc(cr, 0.0, 0.0, r, 0.0, 2.0 * M_PI);
+	cairo_fill(cr);
+	cairo_set_source_rgb(cr, 0.9, 0.1, 0.1);
 	cairo_arc(cr, 0.0, 0.0, r, 0.0, 2.0 * M_PI);
 	cairo_stroke(cr);
 
@@ -228,6 +238,19 @@ motion_handler(struct widget *widget, struct tablet *tablet, float x, float y,
 	}
 
 	return tablet_view->cursor;
+}
+
+static void
+pressure_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+		 wl_fixed_t pressure, void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	if (tablet_view->tablet_contact_status == TABLET_TOOL_DOWN) {
+		tablet_view->line.w = AXIS2DOUBLE(pressure);
+
+		window_schedule_redraw(tablet_view->window);
+	}
 }
 
 static void
@@ -295,6 +318,8 @@ tablet_view_create(struct display *display)
 	widget_set_tablet_up_handler(tablet_view->widget, up_handler);
 	widget_set_tablet_proximity_in_handler(tablet_view->widget,
 					       proximity_in_handler);
+	widget_set_tablet_pressure_handler(tablet_view->widget, pressure_handler);
+
 
 	widget_schedule_resize(tablet_view->widget, 1000, 800);
 	tablet_view->dot.x = 250;

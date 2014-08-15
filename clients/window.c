@@ -1963,6 +1963,13 @@ widget_set_tablet_motion_handler(struct widget *widget,
 }
 
 void
+widget_set_tablet_pressure_handler(struct widget *widget,
+				 widget_tablet_pressure_handler_t handler)
+{
+	widget->tablet_pressure_handler = handler;
+}
+
+void
 widget_set_tablet_proximity_in_handler(struct widget *widget,
 				       widget_tablet_proximity_in_handler_t handler)
 {
