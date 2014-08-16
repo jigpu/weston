@@ -265,9 +265,9 @@ proximity_in_handler(struct widget *widget, struct tablet *tablet,
 	struct tablet_view *tablet_view = data;
 
 	if (tablet_tool_get_type(tool) == WL_TABLET_TOOL_TYPE_PEN)
-		tablet_view->cursor = CURSOR_HAND1;
+		tablet_view->cursor = CURSOR_BLANK;
 	else
-		tablet_view->cursor = CURSOR_LEFT;
+		tablet_view->cursor = CURSOR_HAND1;
 }
 
 static struct tablet_view *
