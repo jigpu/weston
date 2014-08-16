@@ -66,6 +66,16 @@ struct tablet_view {
 };
 
 static void
+tilt_to_spherical(double tilt_x, double tilt_y, double *inclination, double *azimuth)
+{
+	double x = sin(tilt_x);
+	double y = sin(tilt_y);
+
+	*inclination = asin(sqrt(x*x+y*y));
+	*azimuth = atan2(y,x);
+}
+
+static void
 draw_line(struct tablet_view *tablet_view, cairo_t *cr,
 	  struct rectangle *allocation)
 {
@@ -107,6 +117,7 @@ draw_line(struct tablet_view *tablet_view, cairo_t *cr,
 		cairo_surface_destroy(tmp_buffer);
 	}
 
+	if (tablet_view->tablet_contact_status == TABLET_TOOL_DOWN) {
 	if (tablet_view->line.x != -1 && tablet_view->line.y != -1) {
 		if (tablet_view->line.old_x != -1 &&
 		    tablet_view->line.old_y != -1) {
@@ -128,6 +139,7 @@ draw_line(struct tablet_view *tablet_view, cairo_t *cr,
 		tablet_view->line.old_x = tablet_view->line.x;
 		tablet_view->line.old_y = tablet_view->line.y;
 	}
+	}
 	cairo_destroy(bcr);
 
 	cairo_set_source_surface(cr, tablet_view->buffer,
@@ -138,6 +150,52 @@ draw_line(struct tablet_view *tablet_view, cairo_t *cr,
 			allocation->width, allocation->height);
 	cairo_clip(cr);
 	cairo_paint(cr);
+}
+
+static void
+draw_shadow(struct tablet_view *tablet_view, cairo_t *cr)
+{
+	cairo_save(cr);
+
+	// Move cairo origin to be directly below the pen
+	cairo_translate(cr, tablet_view->line.x + 0.5, tablet_view->line.y + 0.5);
+
+	// Rotate cairo's coordinate system to align with the pen azimuth
+	double inc, az;
+	tilt_to_spherical(tablet_view->dot.tx, tablet_view->dot.ty, &inc, &az);
+	cairo_rotate(cr, az);
+
+	// Calculate and center on the point at which the pen is "looking"
+	double dist = 10*tablet_view->line.d+0;
+	double dx = dist*tan(inc);
+	cairo_translate(cr, -dx, 0.0);
+
+	// Calculate the "spray width" of the pen
+	double cone_half_angle = 45*(M_PI/180.0);
+	double xl = dist*tan(inc-cone_half_angle);
+	double xr = dist*tan(inc+cone_half_angle);
+	double yl = dist*tan(-cone_half_angle);
+	double yr = dist*tan(+cone_half_angle);
+	double xscale = (xr-xl)/(yr-yl);
+	cairo_scale(cr, xscale, 1.0);
+
+	// Draw the "spray ellipse" of the pen
+	double alpha = tablet_view->line.d < 0.25 ? 1.0 : 1.0-((tablet_view->line.d - 0.25)/0.75);
+	cairo_set_line_width(cr, 1.0);
+	cairo_set_source_rgba(cr, 0.1, 0.9, 0.9, alpha);
+	cairo_pattern_t *foo = cairo_pattern_create_radial(0.0, 0.0, 0.0, 0.0, 0.0, yr);
+	if (foo) {
+		cairo_pattern_add_color_stop_rgba(foo, 0, 0, 0, 0, 1);
+		cairo_pattern_add_color_stop_rgba(foo, 1, 0, 0, 0, 0);
+		cairo_mask(cr, foo);
+	}
+	else {
+		printf("ZOMG\n");
+		cairo_arc(cr, 0.0, 0.0, yr, 0.0, 2.0*M_PI);
+		cairo_fill(cr);
+	}
+
+	cairo_restore(cr);
 }
 
 static void
@@ -166,6 +224,8 @@ redraw_handler(struct widget *widget, void *data)
 
 	draw_line(tablet_view, cr, &allocation);
 
+	draw_shadow(tablet_view, cr);
+
 	cairo_translate(cr, tablet_view->dot.x + 0.5, tablet_view->dot.y + 0.5);
 	cairo_set_line_width(cr, 1.0);
 
@@ -187,6 +247,10 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_move_to(cr, 0.0, 0.0);
 	cairo_translate(cr, l*sin(tablet_view->dot.tx), l*sin(tablet_view->dot.ty));
 	cairo_line_to(cr, 0.0, 0.0);
+	cairo_move_to(cr, 0.0, -2*r);
+	cairo_line_to(cr, 0.0, 2*r);
+	cairo_move_to(cr, -2*r, 0.0);
+	cairo_line_to(cr, 2*r, 0.0);
 	cairo_new_sub_path(cr);
 	cairo_arc(cr, 0.0, 0.0, 2*r, 0.0, 2.0 * M_PI);
 	cairo_stroke(cr);
@@ -241,12 +305,12 @@ motion_handler(struct widget *widget, struct tablet *tablet, float x, float y,
 {
 	struct tablet_view *tablet_view = data;
 
-	if (tablet_view->tablet_contact_status == TABLET_TOOL_DOWN) {
+	//if (tablet_view->tablet_contact_status == TABLET_TOOL_DOWN) {
 		tablet_view->line.x = x;
 		tablet_view->line.y = y;
 
 		window_schedule_redraw(tablet_view->window);
-	}
+	//}
 
 	return tablet_view->cursor;
 }
