@@ -517,6 +517,22 @@ default_grab_tablet_tilt(struct weston_tablet_grab *grab,
 	struct wl_resource *resource;
 	struct wl_list *resource_list = &tablet->focus_resource_list;
 
+	if (tablet->focus) {
+		float x, y;
+
+		weston_view_to_global_float(tablet->focus, 0, 0,
+					    &x, &y);
+
+		x += sin(wl_fixed_to_double(tilt_x) / 65535.0);
+		y += sin(wl_fixed_to_double(tilt_y) / 65535.0);
+
+		weston_view_from_global_float(tablet->focus, x, y,
+					      &x, &y);
+
+		tilt_x = wl_fixed_from_double(asin(x) * 65535.0);
+		tilt_y = wl_fixed_from_double(asin(y) * 65535.0);
+	}
+
 	if (!wl_list_empty(resource_list)) {
 		wl_resource_for_each(resource, resource_list)
 			wl_tablet_send_tilt(resource, time, tilt_x, tilt_y);
