@@ -115,6 +115,7 @@
       <entry name="tilt" value="1" summary="Tilt axes"/>
       <entry name="pressure" value="2" summary="Pressure axis"/>
       <entry name="distance" value="4" summary="Distance axis"/>
+      <entry name="twist" value="8" summary="Twist axis"/>
     </enum>
 
     <event name="removed">
@@ -237,6 +238,15 @@
       <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
       <arg name="tilt_x" type="fixed" summary="The current value of the X tilt axis"/>
       <arg name="tilt_y" type="fixed" summary="The current value of the Y tilt axis"/>
+    </event>
+
+    <event name="twist">
+      <description summary="twist change event">
+	Sent whenever the twist axis on a tool changes. The value of this
+	event is normalized to a value between -65535 and 65535.
+      </description>
+      <arg name="time" type="uint" summary="The time of the event with millisecond granularity"/>
+      <arg name="twist" type="fixed" summary="The current twist value"/>
     </event>
 
     <event name="button">
