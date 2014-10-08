@@ -282,6 +282,9 @@ handle_tablet_proximity_in(struct libinput_device *libinput_device,
 		    libinput_tool_has_axis(libinput_tool,
 					   LIBINPUT_TABLET_AXIS_TILT_Y))
 			tool->axis_caps |= WL_TABLET_TOOL_AXIS_FLAG_TILT;
+		if (libinput_tool_has_axis(libinput_tool,
+					   LIBINPUT_TABLET_AXIS_TWIST))
+			tool->axis_caps |= WL_TABLET_TOOL_AXIS_FLAG_TWIST;
 
 		tool->type = libinput_tool_get_type(libinput_tool);
 		tool->serial = libinput_tool_get_serial(libinput_tool);
@@ -368,6 +371,19 @@ handle_tablet_axis(struct libinput_device *libinput_device,
 		notify_tablet_tilt(tablet, time,
 				   wl_fixed_from_double(tilt_x),
 				   wl_fixed_from_double(tilt_y));
+	}
+	if (libinput_event_tablet_axis_has_changed(axis_event,
+						   LIBINPUT_TABLET_AXIS_TWIST)) {
+		double twist;
+		uint32_t time;
+
+		time = libinput_event_tablet_get_time(axis_event);
+		twist = libinput_event_tablet_get_axis_value(
+		    axis_event, LIBINPUT_TABLET_AXIS_TWIST)
+			* WL_TABLET_AXIS_MAX;
+
+		notify_tablet_twist(tablet, time,
+				    wl_fixed_from_double(twist));
 	}
 
 	notify_tablet_frame(tablet);

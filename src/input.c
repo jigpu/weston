@@ -524,6 +524,20 @@ default_grab_tablet_tilt(struct weston_tablet_grab *grab,
 }
 
 static void
+default_grab_tablet_twist(struct weston_tablet_grab *grab,
+			  uint32_t time, wl_fixed_t twist)
+{
+	struct weston_tablet *tablet = grab->tablet;
+	struct wl_resource *resource;
+	struct wl_list *resource_list = &tablet->focus_resource_list;
+
+	if (!wl_list_empty(resource_list)) {
+		wl_resource_for_each(resource, resource_list)
+			wl_tablet_send_twist(resource, time, twist);
+	}
+}
+
+static void
 default_grab_tablet_down(struct weston_tablet_grab *grab, uint32_t time)
 {
 	struct weston_tablet *tablet = grab->tablet;
@@ -593,6 +607,7 @@ static struct weston_tablet_grab_interface default_tablet_grab_interface = {
 	default_grab_tablet_pressure,
 	default_grab_tablet_distance,
 	default_grab_tablet_tilt,
+	default_grab_tablet_twist,
 	default_grab_tablet_button,
 	default_grab_tablet_frame,
 	default_grab_tablet_cancel,
@@ -1994,6 +2009,15 @@ notify_tablet_tilt(struct weston_tablet *tablet, uint32_t time,
 	struct weston_tablet_grab *grab = tablet->grab;
 
 	grab->interface->tilt(grab, time, tilt_x, tilt_y);
+}
+
+WL_EXPORT void
+notify_tablet_twist(struct weston_tablet *tablet, uint32_t time,
+		    wl_fixed_t twist)
+{
+	struct weston_tablet_grab *grab = tablet->grab;
+
+	grab->interface->twist(grab, time, twist);
 }
 
 WL_EXPORT void

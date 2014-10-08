@@ -318,6 +318,9 @@ struct weston_tablet_grab_interface {
 		     uint32_t time,
 		     wl_fixed_t tilt_x,
 		     wl_fixed_t tilt_y);
+	void (*twist)(struct weston_tablet_grab *grab,
+		      uint32_t time,
+		      wl_fixed_t twist);
 	void (*button)(struct weston_tablet_grab *grab,
 		       uint32_t time,
 		       uint32_t button,
@@ -1147,6 +1150,9 @@ notify_tablet_distance(struct weston_tablet *tablet, uint32_t time,
 void
 notify_tablet_tilt(struct weston_tablet *tablet, uint32_t time,
 		   wl_fixed_t tilt_x, wl_fixed_t tilt_y);
+void
+notify_tablet_twist(struct weston_tablet *tablet, uint32_t time,
+		    wl_fixed_t twist);
 void
 notify_tablet_button(struct weston_tablet *tablet, uint32_t time,
 		     uint32_t button, enum wl_tablet_button_state state);

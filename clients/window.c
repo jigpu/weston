@@ -3598,6 +3598,7 @@ static const struct wl_tablet_listener tablet_listener = {
 	tablet_handle_pressure,
 	tablet_handle_distance,
 	tablet_handle_tilt,
+	NULL,
 	tablet_handle_button,
 	tablet_handle_frame,
 	tablet_handle_removed,
