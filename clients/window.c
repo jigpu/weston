@@ -319,6 +319,7 @@ struct widget {
 	widget_tablet_pressure_handler_t tablet_pressure_handler;
 	widget_tablet_distance_handler_t tablet_distance_handler;
 	widget_tablet_tilt_handler_t tablet_tilt_handler;
+	widget_tablet_twist_handler_t tablet_twist_handler;
 	widget_tablet_proximity_in_handler_t tablet_proximity_in_handler;
 	widget_tablet_proximity_out_handler_t tablet_proximity_out_handler;
 	widget_tablet_button_handler_t tablet_button_handler;
@@ -3530,6 +3531,18 @@ tablet_handle_tilt(void *data, struct wl_tablet *wl_tablet, uint32_t time,
 }
 
 static void
+tablet_handle_twist(void *data, struct wl_tablet *wl_tablet, uint32_t time,
+		    wl_fixed_t twist)
+{
+	struct tablet *tablet = data;
+	struct widget *widget = tablet->focus_widget;
+
+	if (widget && widget->tablet_twist_handler)
+		widget->tablet_twist_handler(widget, tablet, time, twist,
+					     widget->user_data);
+}
+
+static void
 tablet_handle_removed(void *data, struct wl_tablet *wl_tablet)
 {
 	struct tablet *tablet = data;
@@ -3598,7 +3611,7 @@ static const struct wl_tablet_listener tablet_listener = {
 	tablet_handle_pressure,
 	tablet_handle_distance,
 	tablet_handle_tilt,
-	NULL,
+	tablet_handle_twist,
 	tablet_handle_button,
 	tablet_handle_frame,
 	tablet_handle_removed,
