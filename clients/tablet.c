@@ -53,7 +53,7 @@ struct tablet_view {
 
 	struct {
 		int32_t x, y;
-		double tx, ty;
+		double tx, ty, twist;
 	} dot;
 
 	struct {
@@ -170,10 +170,12 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_set_line_width(cr, 1.0);
 
 	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
+	cairo_rotate(cr, tablet_view->dot.twist);
 	cairo_move_to(cr, 0.0, -r*tablet_view->line.d);
 	cairo_line_to(cr, 0.0, r*tablet_view->line.d);
 	cairo_move_to(cr, -r*tablet_view->line.d, 0.0);
 	cairo_line_to(cr, r*tablet_view->line.d, 0.0);
+	cairo_rotate(cr, -tablet_view->dot.twist);
 	cairo_stroke(cr);
 
 	cairo_set_source_rgba(cr, 0.9, 0.1, 0.1, tablet_view->line.w);
@@ -186,7 +188,16 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
 	cairo_move_to(cr, 0.0, 0.0);
 	cairo_translate(cr, l*sin(tablet_view->dot.tx), l*sin(tablet_view->dot.ty));
+	cairo_rotate(cr, tablet_view->dot.twist);
 	cairo_line_to(cr, 0.0, 0.0);
+	cairo_move_to(cr, 0.0, -2*r);
+	cairo_line_to(cr, 0.0, 2*r);
+	cairo_move_to(cr, -2*r, 0.0);
+	cairo_line_to(cr, 2*r, 0.0);
+	cairo_move_to(cr, -2*r, 0.0);
+	cairo_line_to(cr, 0.0, -2*r);
+	cairo_line_to(cr, 2*r, 0.0);
+	cairo_rotate(cr, -tablet_view->dot.twist);
 	cairo_new_sub_path(cr);
 	cairo_arc(cr, 0.0, 0.0, 2*r, 0.0, 2.0 * M_PI);
 	cairo_stroke(cr);
@@ -288,6 +299,17 @@ tilt_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
 }
 
 static void
+twist_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+		 wl_fixed_t twist, void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	tablet_view->dot.twist = DEG2RAD(AXIS2DOUBLE(twist)*180);
+
+	window_schedule_redraw(tablet_view->window);
+}
+
+static void
 resize_handler(struct widget *widget,
 	       int32_t width, int32_t height,
 	       void *data)
@@ -355,6 +377,7 @@ tablet_view_create(struct display *display)
 	widget_set_tablet_pressure_handler(tablet_view->widget, pressure_handler);
 	widget_set_tablet_distance_handler(tablet_view->widget, distance_handler);
 	widget_set_tablet_tilt_handler(tablet_view->widget, tilt_handler);
+	widget_set_tablet_twist_handler(tablet_view->widget, twist_handler);
 
 
 	widget_schedule_resize(tablet_view->widget, 1000, 800);

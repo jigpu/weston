@@ -1985,6 +1985,13 @@ widget_set_tablet_tilt_handler(struct widget *widget,
 }
 
 void
+widget_set_tablet_twist_handler(struct widget *widget,
+				widget_tablet_twist_handler_t handler)
+{
+	widget->tablet_twist_handler = handler;
+}
+
+void
 widget_set_tablet_proximity_in_handler(struct widget *widget,
 				       widget_tablet_proximity_in_handler_t handler)
 {
