@@ -35,6 +35,7 @@
 #include "window.h"
 
 #define AXIS2DOUBLE(a) (wl_fixed_to_double(a)/65535.0)
+#define DEG2RAD(d) ((d)*M_PI/180.0)
 
 struct tablet_view {
 	struct display *display;
@@ -52,6 +53,7 @@ struct tablet_view {
 
 	struct {
 		int32_t x, y;
+		double tx, ty;
 	} dot;
 
 	struct {
@@ -142,6 +144,7 @@ static void
 redraw_handler(struct widget *widget, void *data)
 {
 	static const double r = 10.0;
+	static const double l = 3*r;
 	struct tablet_view *tablet_view = data;
 	cairo_surface_t *surface;
 	cairo_t *cr;
@@ -178,6 +181,14 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_fill(cr);
 	cairo_set_source_rgb(cr, 0.9, 0.1, 0.1);
 	cairo_arc(cr, 0.0, 0.0, r, 0.0, 2.0 * M_PI);
+	cairo_stroke(cr);
+
+	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
+	cairo_move_to(cr, 0.0, 0.0);
+	cairo_translate(cr, l*sin(tablet_view->dot.tx), l*sin(tablet_view->dot.ty));
+	cairo_line_to(cr, 0.0, 0.0);
+	cairo_new_sub_path(cr);
+	cairo_arc(cr, 0.0, 0.0, 2*r, 0.0, 2.0 * M_PI);
 	cairo_stroke(cr);
 
 	cairo_destroy(cr);
@@ -265,6 +276,18 @@ distance_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
 }
 
 static void
+tilt_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+	wl_fixed_t tilt_x, wl_fixed_t tilt_y, void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	tablet_view->dot.tx = DEG2RAD(AXIS2DOUBLE(tilt_x)*64);
+	tablet_view->dot.ty = DEG2RAD(AXIS2DOUBLE(tilt_y)*64);
+
+	window_schedule_redraw(tablet_view->window);
+}
+
+static void
 resize_handler(struct widget *widget,
 	       int32_t width, int32_t height,
 	       void *data)
@@ -331,6 +354,7 @@ tablet_view_create(struct display *display)
 					       proximity_in_handler);
 	widget_set_tablet_pressure_handler(tablet_view->widget, pressure_handler);
 	widget_set_tablet_distance_handler(tablet_view->widget, distance_handler);
+	widget_set_tablet_tilt_handler(tablet_view->widget, tilt_handler);
 
 
 	widget_schedule_resize(tablet_view->widget, 1000, 800);
