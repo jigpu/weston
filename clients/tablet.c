@@ -57,7 +57,7 @@ struct tablet_view {
 	struct {
 		int32_t x, y;
 		int32_t old_x, old_y;
-		float w;
+		float w, d;
 	} line;
 
 	int reset;
@@ -165,12 +165,12 @@ redraw_handler(struct widget *widget, void *data)
 
 	cairo_translate(cr, tablet_view->dot.x + 0.5, tablet_view->dot.y + 0.5);
 	cairo_set_line_width(cr, 1.0);
-	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
 
-	cairo_move_to(cr, 0.0, -r);
-	cairo_line_to(cr, 0.0, r);
-	cairo_move_to(cr, -r, 0.0);
-	cairo_line_to(cr, r, 0.0);
+	cairo_set_source_rgb(cr, 0.1, 0.9, 0.9);
+	cairo_move_to(cr, 0.0, -r*tablet_view->line.d);
+	cairo_line_to(cr, 0.0, r*tablet_view->line.d);
+	cairo_move_to(cr, -r*tablet_view->line.d, 0.0);
+	cairo_line_to(cr, r*tablet_view->line.d, 0.0);
 	cairo_stroke(cr);
 
 	cairo_set_source_rgba(cr, 0.9, 0.1, 0.1, tablet_view->line.w);
@@ -254,6 +254,17 @@ pressure_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
 }
 
 static void
+distance_handler(struct widget *widget, struct tablet *tablet, uint32_t time,
+		 wl_fixed_t distance, void *data)
+{
+	struct tablet_view *tablet_view = data;
+
+	tablet_view->line.d = AXIS2DOUBLE(distance);
+
+	window_schedule_redraw(tablet_view->window);
+}
+
+static void
 resize_handler(struct widget *widget,
 	       int32_t width, int32_t height,
 	       void *data)
@@ -319,6 +330,7 @@ tablet_view_create(struct display *display)
 	widget_set_tablet_proximity_in_handler(tablet_view->widget,
 					       proximity_in_handler);
 	widget_set_tablet_pressure_handler(tablet_view->widget, pressure_handler);
+	widget_set_tablet_distance_handler(tablet_view->widget, distance_handler);
 
 
 	widget_schedule_resize(tablet_view->widget, 1000, 800);
