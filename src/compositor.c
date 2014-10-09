@@ -3402,6 +3402,43 @@ weston_output_init(struct weston_output *output, struct weston_compositor *c,
 	wl_signal_emit(&c->output_created_signal, output);
 }
 
+/*
+WL_EXPORT void
+weston_output_transform_angle(struct weston_output *output,
+			      wl_fixed_t device_angle, wl_fixed_t *angle)
+{
+	wl_fixed_t ta;
+
+	switch(output->transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+	default:
+		ta = device_angle;
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		ta = (device_angle + 90) % 360; // Degrees?
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		ta = (device_angle + 180) % 360; // Degrees?
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		ta = (device_angle + 270) % 360; // Degrees
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		ta = -device_angle; // 0 degrees up?
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		ta = -(device_angle + 90) % 360; // 0 degrees up?
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		ta = -(device_angle + 180) % 360; // 0 degrees up?
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		ta = -(device_angle + 270) % 360; // 0 degrees up?
+		break;
+	}
+}
+*/
+
 WL_EXPORT void
 weston_output_transform_coordinate(struct weston_output *output,
 				   wl_fixed_t device_x, wl_fixed_t device_y,
