@@ -828,6 +828,15 @@ weston_tablet_destroy(struct weston_tablet *tablet)
 	free(tablet);
 }
 
+static struct wl_resource *
+find_resource_for_view(struct wl_list *list, struct weston_view *view)
+{
+	if (!view)
+		return NULL;
+
+	return find_resource_for_surface(list, view->surface);
+}
+
 WL_EXPORT void
 weston_tablet_tool_set_focus(struct weston_tablet_tool *tool,
 			     struct weston_view *view,
